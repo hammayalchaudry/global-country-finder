@@ -15,17 +15,14 @@ function App() {
       setLoading(true);
       setError(null);
       
+      // Direct reliable fallback optimized link with secure arrays
       const response = await fetch('https://restcountries.com/v3.1/all');
       
       if (!response.ok) {
-        throw new Error('Failed to fetch data from primary server.');
+        throw new Error('Failed to fetch data from server.');
       }
       
-      let data = await response.json();
-      
-      if (data && data.data) {
-        data = data.data;
-      }
+      const data = await response.json();
 
       if (Array.isArray(data)) {
         const sortedData = data.sort((a, b) => {
@@ -35,30 +32,28 @@ function App() {
         });
         setCountries(sortedData);
       } else {
-        throw new Error('Data format could not be verified.');
+        throw new Error('Invalid data format.');
       }
       
       setLoading(false);
     } catch (err) {
+      // Direct static fail-safe backup link just in case network blocks the main API
       try {
-        const backupResponse = await fetch('https://raw.githubusercontent.com/mledoze/countries/master/dist/countries.json');
+        const backupResponse = await fetch('https://raw.githubusercontent.com/samayo/country-json/master/src/country-by-population.json');
         const backupData = await backupResponse.json();
-        
         if (Array.isArray(backupData)) {
-          const sortedBackup = backupData.sort((a, b) => {
-            const nameA = a.name?.common || '';
-            const nameB = b.name?.common || '';
-            return nameA.localeCompare(nameB);
-          });
-          setCountries(sortedBackup);
+          const formattedBackup = backupData.map(c => ({
+            name: { common: c.country },
+            population: c.population,
+            cca2: c.country ? c.country.substring(0, 2) : 'US'
+          })).sort((a, b) => a.name.common.localeCompare(b.name.common));
+          setCountries(formattedBackup);
           setLoading(false);
           return;
         }
-      } catch (backupErr) {
-        // Fallback catch
-      }
-      
-      setError('Connection Timeout. Please check your network connection.');
+      } catch (e) {}
+
+      setError('Could not sync database. Please refresh.');
       setLoading(false);
     }
   };
@@ -67,12 +62,10 @@ function App() {
     country.name?.common?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Flags aur Population ke format ko handle karne ke liye helper helper functions
   const getFlagSrc = (country) => {
     if (country.flags?.png || country.flags?.svg) {
       return country.flags.png || country.flags.svg;
     }
-    // Backup API formatting check (cca2 ya lowercase codes ke liye)
     if (country.cca2) {
       return `https://flagcdn.com/w320/${country.cca2.toLowerCase()}.png`;
     }
@@ -80,9 +73,8 @@ function App() {
   };
 
   const getPopulation = (country) => {
-    // Agar number format mein direct ho
     if (country.population) {
-      return country.population.toLocaleString();
+      return Number(country.population).toLocaleString();
     }
     return 'N/A';
   };
@@ -110,14 +102,14 @@ function App() {
         {loading && (
           <div className="flex flex-col items-center justify-center min-h-[50vh] text-center space-y-4">
             <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-zinc-400 font-medium text-sm">Loading countries database securely... 🌐</p>
+            <p className="text-zinc-400 font-medium text-sm">Syncing latest live database... 🌐</p>
           </div>
         )}
 
         {error && !loading && (
           <div className="max-w-md mx-auto bg-red-950/30 border border-red-800 rounded-2xl p-6 text-center shadow-xl mt-10">
             <span className="text-4xl block mb-2">⚠️</span>
-            <h3 className="text-lg font-bold text-red-400 mb-2">Connection Failed</h3>
+            <h3 className="text-lg font-bold text-red-400 mb-2">Sync Failed</h3>
             <p className="text-zinc-400 text-xs mb-5">{error}</p>
             <button onClick={fetchCountriesData} className="bg-red-800 text-white px-5 py-2 rounded-xl text-xs font-bold hover:bg-red-700 transition cursor-pointer">
               🔄 Try Again
