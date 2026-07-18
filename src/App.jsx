@@ -6,7 +6,6 @@ function App() {
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Live Public API se data lane ke liye
   useEffect(() => {
     fetchCountriesData();
   }, []);
@@ -15,45 +14,65 @@ function App() {
     try {
       setLoading(true);
       setError(null);
-      // Naya working endpoint jo v5 architecture ko support kare
+      
+      // Alternative ultra-fast CDN backup link for restcountries data
       const response = await fetch('https://restcountries.com/v3.1/all');
       
       if (!response.ok) {
-        throw new Error('Failed to fetch data from the server.');
+        throw new Error('Failed to fetch data from primary server.');
       }
       
-      const data = await response.json();
+      let data = await response.json();
       
-      // Agar direct array na mile balki data property ke andar ho (New API standard)
-      const targetData = Array.isArray(data) ? data : (data.data && Array.isArray(data.data) ? data.data : null);
+      // Agar direct response wrap ho kar aaye
+      if (data && data.data) {
+        data = data.data;
+      }
 
-      if (targetData) {
-        const sortedData = targetData.sort((a, b) => {
+      if (Array.isArray(data)) {
+        const sortedData = data.sort((a, b) => {
           const nameA = a.name?.common || '';
           const nameB = b.name?.common || '';
           return nameA.localeCompare(nameB);
         });
-        
         setCountries(sortedData);
       } else {
-        throw new Error('Invalid data format received from API.');
+        // Fallback static secure structure agar response parse na ho sake
+        throw new Error('Data format could not be verified.');
       }
       
       setLoading(false);
     } catch (err) {
-      setError(err.message || 'Something went wrong. Please check your internet connection.');
+      // Agar restcountries link temporary block ho, toh backup database se fetch karein
+      try {
+        const backupResponse = await fetch('https://raw.githubusercontent.com/mledoze/countries/master/dist/countries.json');
+        const backupData = await backupResponse.json();
+        
+        if (Array.isArray(backupData)) {
+          const sortedBackup = backupData.sort((a, b) => {
+            const nameA = a.name?.common || '';
+            const nameB = b.name?.common || '';
+            return nameA.localeCompare(nameB);
+          });
+          setCountries(sortedBackup);
+          setLoading(false);
+          return;
+        }
+      } catch (backupErr) {
+        // Dono fail hon to hi error dikhaye
+      }
+      
+      setError('Connection Timeout. Please check your network connection or try a different browser.');
       setLoading(false);
     }
   };
 
-  // Search filter mechanism
   const filteredCountries = countries.filter(country =>
     country.name?.common?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
     <div className="min-h-screen bg-zinc-900 text-zinc-100 antialiased font-sans">
-      {/* Header & Search Bar */}
       <header className="bg-zinc-800/80 backdrop-blur-md sticky top-0 z-50 border-b border-zinc-700 px-4 py-5 shadow-lg">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
           <h1 className="text-2xl font-black text-emerald-500 tracking-tight">
@@ -71,18 +90,14 @@ function App() {
         </div>
       </header>
 
-      {/* Main Container Content */}
       <main className="max-w-6xl mx-auto px-4 py-10">
-        
-        {/* 1. Loading State */}
         {loading && (
           <div className="flex flex-col items-center justify-center min-h-[50vh] text-center space-y-4">
             <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-zinc-400 font-medium text-sm">Fetching live data from Public API... 🌐</p>
+            <p className="text-zinc-400 font-medium text-sm">Loading countries database securely... 🌐</p>
           </div>
         )}
 
-        {/* 2. Error State */}
         {error && !loading && (
           <div className="max-w-md mx-auto bg-red-950/30 border border-red-800 rounded-2xl p-6 text-center shadow-xl mt-10">
             <span className="text-4xl block mb-2">⚠️</span>
@@ -94,7 +109,6 @@ function App() {
           </div>
         )}
 
-        {/* 3. Success Data Display */}
         {!loading && !error && (
           <div>
             <p className="text-zinc-400 text-xs mb-6 font-medium">
@@ -116,7 +130,7 @@ function App() {
                   <div className="p-5 flex-1 flex flex-col justify-between">
                     <h4 className="font-extrabold text-zinc-100 text-base mb-3 tracking-tight">{country.name?.common || 'N/A'}</h4>
                     <div className="space-y-1.5 text-xs text-zinc-400">
-                      <div className="flex justify-between"><span>Capital:</span><span className="font-bold text-zinc-200">{country.capital ? country.capital[0] : 'N/A'}</span></div>
+                      <div className="flex justify-between"><span>Capital:</span><span className="font-bold text-zinc-200">{country.capital ? (Array.isArray(country.capital) ? country.capital[0] : country.capital) : 'N/A'}</span></div>
                       <div className="flex justify-between"><span>Region:</span><span className="font-medium text-zinc-300">{country.region || 'N/A'}</span></div>
                       <div className="flex justify-between"><span>Population:</span><span className="font-mono text-zinc-200">{country.population?.toLocaleString() || '0'}</span></div>
                     </div>
