@@ -15,11 +15,11 @@ function App() {
       setLoading(true);
       setError(null);
       
-      // Direct reliable fallback optimized link with secure arrays
-      const response = await fetch('https://restcountries.com/v3.1/all');
+      // RestCountries v3.1 direct endpoint jo stable data deta hai
+      const response = await fetch('https://restcountries.com/v3.1/all?fields=name,flags,capital,region,population,cca3,cca2');
       
       if (!response.ok) {
-        throw new Error('Failed to fetch data from server.');
+        throw new Error('Failed to fetch data from live API.');
       }
       
       const data = await response.json();
@@ -32,28 +32,12 @@ function App() {
         });
         setCountries(sortedData);
       } else {
-        throw new Error('Invalid data format.');
+        throw new Error('Data structure is not an array.');
       }
       
       setLoading(false);
     } catch (err) {
-      // Direct static fail-safe backup link just in case network blocks the main API
-      try {
-        const backupResponse = await fetch('https://raw.githubusercontent.com/samayo/country-json/master/src/country-by-population.json');
-        const backupData = await backupResponse.json();
-        if (Array.isArray(backupData)) {
-          const formattedBackup = backupData.map(c => ({
-            name: { common: c.country },
-            population: c.population,
-            cca2: c.country ? c.country.substring(0, 2) : 'US'
-          })).sort((a, b) => a.name.common.localeCompare(b.name.common));
-          setCountries(formattedBackup);
-          setLoading(false);
-          return;
-        }
-      } catch (e) {}
-
-      setError('Could not sync database. Please refresh.');
+      setError('Could not connect to live servers. Please refresh the page.');
       setLoading(false);
     }
   };
@@ -62,25 +46,9 @@ function App() {
     country.name?.common?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const getFlagSrc = (country) => {
-    if (country.flags?.png || country.flags?.svg) {
-      return country.flags.png || country.flags.svg;
-    }
-    if (country.cca2) {
-      return `https://flagcdn.com/w320/${country.cca2.toLowerCase()}.png`;
-    }
-    return 'https://via.placeholder.com/320x200?text=No+Flag';
-  };
-
-  const getPopulation = (country) => {
-    if (country.population) {
-      return Number(country.population).toLocaleString();
-    }
-    return 'N/A';
-  };
-
   return (
     <div className="min-h-screen bg-zinc-900 text-zinc-100 antialiased font-sans">
+      {/* Header & Search Bar */}
       <header className="bg-zinc-800/80 backdrop-blur-md sticky top-0 z-50 border-b border-zinc-700 px-4 py-5 shadow-lg">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
           <h1 className="text-2xl font-black text-emerald-500 tracking-tight">
@@ -98,6 +66,7 @@ function App() {
         </div>
       </header>
 
+      {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 py-10">
         {loading && (
           <div className="flex flex-col items-center justify-center min-h-[50vh] text-center space-y-4">
@@ -134,7 +103,7 @@ function App() {
                 <div key={country.cca3 || index} className="bg-zinc-800 rounded-2xl border border-zinc-700/60 overflow-hidden shadow-md flex flex-col justify-between hover:border-emerald-500/40 transition-all duration-300">
                   <div className="h-40 w-full bg-zinc-700/30 overflow-hidden border-b border-zinc-700/60">
                     <img 
-                      src={getFlagSrc(country)} 
+                      src={country.flags?.png || country.flags?.svg || `https://flagcdn.com/w320/${country.cca2?.toLowerCase()}.png`} 
                       alt={country.name?.common || 'Flag'} 
                       className="w-full h-full object-cover" 
                       onError={(e) => { e.target.src = 'https://via.placeholder.com/320x200?text=Flag+Unavailable'; }}
@@ -145,7 +114,7 @@ function App() {
                     <div className="space-y-1.5 text-xs text-zinc-400">
                       <div className="flex justify-between"><span>Capital:</span><span className="font-bold text-zinc-200">{country.capital ? (Array.isArray(country.capital) ? country.capital[0] : country.capital) : 'N/A'}</span></div>
                       <div className="flex justify-between"><span>Region:</span><span className="font-medium text-zinc-300">{country.region || 'N/A'}</span></div>
-                      <div className="flex justify-between"><span>Population:</span><span className="font-mono text-zinc-200">{getPopulation(country)}</span></div>
+                      <div className="flex justify-between"><span>Population:</span><span className="font-mono text-zinc-200">{country.population ? country.population.toLocaleString() : 'N/A'}</span></div>
                     </div>
                   </div>
                 </div>
