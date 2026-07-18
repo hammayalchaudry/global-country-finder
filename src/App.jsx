@@ -15,7 +15,6 @@ function App() {
       setLoading(true);
       setError(null);
       
-      // Alternative ultra-fast CDN backup link for restcountries data
       const response = await fetch('https://restcountries.com/v3.1/all');
       
       if (!response.ok) {
@@ -24,7 +23,6 @@ function App() {
       
       let data = await response.json();
       
-      // Agar direct response wrap ho kar aaye
       if (data && data.data) {
         data = data.data;
       }
@@ -37,13 +35,11 @@ function App() {
         });
         setCountries(sortedData);
       } else {
-        // Fallback static secure structure agar response parse na ho sake
         throw new Error('Data format could not be verified.');
       }
       
       setLoading(false);
     } catch (err) {
-      // Agar restcountries link temporary block ho, toh backup database se fetch karein
       try {
         const backupResponse = await fetch('https://raw.githubusercontent.com/mledoze/countries/master/dist/countries.json');
         const backupData = await backupResponse.json();
@@ -59,10 +55,10 @@ function App() {
           return;
         }
       } catch (backupErr) {
-        // Dono fail hon to hi error dikhaye
+        // Fallback catch
       }
       
-      setError('Connection Timeout. Please check your network connection or try a different browser.');
+      setError('Connection Timeout. Please check your network connection.');
       setLoading(false);
     }
   };
@@ -70,6 +66,26 @@ function App() {
   const filteredCountries = countries.filter(country =>
     country.name?.common?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Flags aur Population ke format ko handle karne ke liye helper helper functions
+  const getFlagSrc = (country) => {
+    if (country.flags?.png || country.flags?.svg) {
+      return country.flags.png || country.flags.svg;
+    }
+    // Backup API formatting check (cca2 ya lowercase codes ke liye)
+    if (country.cca2) {
+      return `https://flagcdn.com/w320/${country.cca2.toLowerCase()}.png`;
+    }
+    return 'https://via.placeholder.com/320x200?text=No+Flag';
+  };
+
+  const getPopulation = (country) => {
+    // Agar number format mein direct ho
+    if (country.population) {
+      return country.population.toLocaleString();
+    }
+    return 'N/A';
+  };
 
   return (
     <div className="min-h-screen bg-zinc-900 text-zinc-100 antialiased font-sans">
@@ -125,14 +141,19 @@ function App() {
               {filteredCountries.map((country, index) => (
                 <div key={country.cca3 || index} className="bg-zinc-800 rounded-2xl border border-zinc-700/60 overflow-hidden shadow-md flex flex-col justify-between hover:border-emerald-500/40 transition-all duration-300">
                   <div className="h-40 w-full bg-zinc-700/30 overflow-hidden border-b border-zinc-700/60">
-                    <img src={country.flags?.png || country.flags?.svg} alt={country.name?.common || 'Flag'} className="w-full h-full object-cover" />
+                    <img 
+                      src={getFlagSrc(country)} 
+                      alt={country.name?.common || 'Flag'} 
+                      className="w-full h-full object-cover" 
+                      onError={(e) => { e.target.src = 'https://via.placeholder.com/320x200?text=Flag+Unavailable'; }}
+                    />
                   </div>
                   <div className="p-5 flex-1 flex flex-col justify-between">
                     <h4 className="font-extrabold text-zinc-100 text-base mb-3 tracking-tight">{country.name?.common || 'N/A'}</h4>
                     <div className="space-y-1.5 text-xs text-zinc-400">
                       <div className="flex justify-between"><span>Capital:</span><span className="font-bold text-zinc-200">{country.capital ? (Array.isArray(country.capital) ? country.capital[0] : country.capital) : 'N/A'}</span></div>
                       <div className="flex justify-between"><span>Region:</span><span className="font-medium text-zinc-300">{country.region || 'N/A'}</span></div>
-                      <div className="flex justify-between"><span>Population:</span><span className="font-mono text-zinc-200">{country.population?.toLocaleString() || '0'}</span></div>
+                      <div className="flex justify-between"><span>Population:</span><span className="font-mono text-zinc-200">{getPopulation(country)}</span></div>
                     </div>
                   </div>
                 </div>
