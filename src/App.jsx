@@ -22,10 +22,20 @@ function App() {
       }
       
       const data = await response.json();
-      // Alphabetical order mein sort karne ke liye
-      const sortedData = data.sort((a, b) => a.name.common.localeCompare(b.name.common));
       
-      setCountries(sortedData);
+      // SAFE CHECK: Yeh check karega ke data array hai ya nahi taake .sort() crash na ho
+      if (Array.isArray(data)) {
+        const sortedData = data.sort((a, b) => {
+          const nameA = a.name?.common || '';
+          const nameB = b.name?.common || '';
+          return nameA.localeCompare(nameB);
+        });
+        
+        setCountries(sortedData);
+      } else {
+        throw new Error('Invalid data format received from API.');
+      }
+      
       setLoading(false);
     } catch (err) {
       setError(err.message || 'Something went wrong. Please check your internet connection.');
@@ -35,7 +45,7 @@ function App() {
 
   // Search filter mechanism
   const filteredCountries = countries.filter(country =>
-    country.name.common.toLowerCase().includes(searchQuery.toLowerCase())
+    country.name?.common?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -98,10 +108,10 @@ function App() {
               {filteredCountries.map((country, index) => (
                 <div key={country.cca3 || index} className="bg-zinc-800 rounded-2xl border border-zinc-700/60 overflow-hidden shadow-md flex flex-col justify-between hover:border-emerald-500/40 transition-all duration-300">
                   <div className="h-40 w-full bg-zinc-700/30 overflow-hidden border-b border-zinc-700/60">
-                    <img src={country.flags?.png || country.flags?.svg} alt={country.name.common} className="w-full h-full object-cover" />
+                    <img src={country.flags?.png || country.flags?.svg} alt={country.name?.common || 'Flag'} className="w-full h-full object-cover" />
                   </div>
                   <div className="p-5 flex-1 flex flex-col justify-between">
-                    <h4 className="font-extrabold text-zinc-100 text-base mb-3 tracking-tight">{country.name.common}</h4>
+                    <h4 className="font-extrabold text-zinc-100 text-base mb-3 tracking-tight">{country.name?.common || 'N/A'}</h4>
                     <div className="space-y-1.5 text-xs text-zinc-400">
                       <div className="flex justify-between"><span>Capital:</span><span className="font-bold text-zinc-200">{country.capital ? country.capital[0] : 'N/A'}</span></div>
                       <div className="flex justify-between"><span>Region:</span><span className="font-medium text-zinc-300">{country.region || 'N/A'}</span></div>
