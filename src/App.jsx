@@ -15,7 +15,6 @@ function App() {
       setLoading(true);
       setError(null);
       
-      // Super stable ultra-fast backup JSON file containing all flags and correct populations
       const response = await fetch('https://restcountries.com/v3.1/all');
       
       if (!response.ok) {
@@ -29,56 +28,34 @@ function App() {
         throw new Error('Format error.');
       }
     } catch (err) {
-      // Direct Fallback to guaranteed open-source global dataset if API is blocked locally
+      // Direct Fallback to rich open-source global dataset if main API is blocked locally
       try {
         const fallbackRes = await fetch('https://raw.githubusercontent.com/samayo/country-json/master/src/country-by-population.json');
         const populationData = await fallbackRes.json();
         
-        if (Array.isArray(populationData)) {
-          const formatted = populationData.map((c, i) => {
-            // Generating exact unique matching flags from international flagcdn using standardized logic
-            const countryName = c.country || 'Unknown';
+        const richRes = await fetch('https://raw.githubusercontent.com/mledoze/countries/master/dist/countries.json');
+        const richData = await richRes.json();
+        
+        if (Array.isArray(richData) && Array.isArray(populationData)) {
+          const combined = richData.map(r => {
+            const match = populationData.find(p => p.country?.toLowerCase() === r.name?.common?.toLowerCase());
             return {
-              cca3: `ISO-${i}`,
-              name: { common: countryName },
-              population: c.population || 0,
-              region: 'Global',
-              capital: ['Live Info'],
-              // Dynamic unique flags logic bypassing the broken main wrapper
-              flags: { png: `https://images.mainwp.com/wp-content/uploads/2016/06/default-placeholder-300x300.png` }
+              cca3: r.cca3,
+              cca2: r.cca2,
+              name: { common: r.name?.common },
+              population: match ? match.population : (r.population || 0),
+              region: r.region || 'Global',
+              capital: r.capital && r.capital.length > 0 ? r.capital : ['N/A'],
+              flags: { png: r.cca2 ? `https://flagcdn.com/w320/${r.cca2.toLowerCase()}.png` : '' }
             };
-          });
+          }).sort((a, b) => a.name.common.localeCompare(b.name.common));
           
-          // Try loading a secondary richer open repository for exact matching flags instead
-          try {
-            const richRes = await fetch('https://raw.githubusercontent.com/mledoze/countries/master/dist/countries.json');
-            const richData = await richRes.json();
-            if (Array.isArray(richData)) {
-              const combined = richData.map(r => {
-                const match = populationData.find(p => p.country?.toLowerCase() === r.name?.common?.toLowerCase());
-                return {
-                  cca3: r.cca3,
-                  cca2: r.cca2,
-                  name: { common: r.name?.common },
-                  population: match ? match.population : (r.population || 'N/A'),
-                  region: r.region || 'N/A',
-                  capital: r.capital || ['N/A'],
-                  flags: { png: r.cca2 ? `https://flagcdn.com/w320/${r.cca2.toLowerCase()}.png` : '' }
-                };
-              }).sort((a, b) => a.name.common.localeCompare(b.name.common));
-              
-              setCountries(combined);
-              setLoading(false);
-              return;
-            }
-          } catch(e) {}
-
-          setCountries(formatted);
+          setCountries(combined);
           setLoading(false);
           return;
         }
-      } catch (e) {}
-      
+      } catch(e) {}
+
       setError('Connection failed. Please check your internet connection.');
       setLoading(false);
     }
