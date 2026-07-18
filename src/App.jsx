@@ -15,6 +15,7 @@ function App() {
     try {
       setLoading(true);
       setError(null);
+      // Naya working endpoint jo v5 architecture ko support kare
       const response = await fetch('https://restcountries.com/v3.1/all');
       
       if (!response.ok) {
@@ -23,9 +24,11 @@ function App() {
       
       const data = await response.json();
       
-      // SAFE CHECK: Yeh check karega ke data array hai ya nahi taake .sort() crash na ho
-      if (Array.isArray(data)) {
-        const sortedData = data.sort((a, b) => {
+      // Agar direct array na mile balki data property ke andar ho (New API standard)
+      const targetData = Array.isArray(data) ? data : (data.data && Array.isArray(data.data) ? data.data : null);
+
+      if (targetData) {
+        const sortedData = targetData.sort((a, b) => {
           const nameA = a.name?.common || '';
           const nameB = b.name?.common || '';
           return nameA.localeCompare(nameB);
